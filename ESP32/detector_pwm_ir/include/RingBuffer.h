@@ -22,15 +22,20 @@
 
 #define RINGBUFFER_H
 
-template <typename T, unsigned int SIZE>
+template <typename T, int SIZE>
 class RingBuffer
 {
     volatile T buffer[SIZE];
-    volatile T writepos;
-    volatile T readpos;
+    volatile int writepos;
+    volatile int readpos;
 
 public:
-    RingBuffer() : writepos(0), readpos(0) {
+    RingBuffer(T value, const bool isFilled = false) : writepos(0), readpos(0) {
+        if (isFilled) {
+            for (int i = 0; i < SIZE; i++) {
+                put(value);
+            }   
+        }
     }
 
     __attribute__((always_inline)) void put(T c) {
@@ -44,12 +49,13 @@ public:
         return ret;
     }
 
-    __attribute__((always_inline)) bool isEmpty() {
-        return readpos == writepos;
+    __attribute__((always_inline)) T peek(int i) {
+        T ret = buffer[i % SIZE];
+        return ret;
     }
 
-    __attribute__((always_inline)) bool isNotEmpty() {
-        return readpos != writepos;
+    __attribute__((always_inline)) bool isEmpty() {
+        return readpos == writepos;
     }
 
     __attribute__((always_inline)) T getLength() {
@@ -61,10 +67,10 @@ public:
         writepos = 0;
     }
 
-    __attribute__((always_inline)) void copyTo(unsigned long *outBuffer) {
+    __attribute__((always_inline)) void copyTo(std::vector<T>& valuesOutBuffer) {
         int rp = readpos; // thread safe
         for (int i = 0; i < SIZE; i++) {
-            *(outBuffer + i) = buffer[(rp + i) % SIZE];
+            valuesOutBuffer[i] = buffer[(rp + i) % SIZE];
         }
     }
 };

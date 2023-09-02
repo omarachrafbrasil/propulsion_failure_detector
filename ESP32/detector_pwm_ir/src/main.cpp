@@ -21,9 +21,11 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <stdio.h>
+#include <vector>
 
 #include <RingBuffer.h>
 #include <CriticalSection.h>
+#include <Correlation.h>
 
 #include "SSD1306Wire.h"
 
@@ -53,7 +55,6 @@ volatile bool isFailure = false;
 int lastMillis = 0;
 char strBuf[50];
 
-CriticalSection CS;
 
 TaskHandle_t taskPWMHandler = NULL; // Read PWM signal and transform to pulse width
 TaskHandle_t taskIRHandler = NULL; // Read pulses from Infra Read sensor
@@ -68,8 +69,7 @@ void taskTimer(void *parameter);
 void taskFailure(void *parameter);
 void taskDisplay(void *parameter);
 
-
-
+// Timer interrup handler
 hw_timer_t *timer = NULL;
 
 // Initialize the OLED display
@@ -77,10 +77,18 @@ hw_timer_t *timer = NULL;
 // SCL -> D22
 SSD1306Wire Display(0x3c, 21, 22);
 
-RingBuffer<unsigned long, SAMPLES_BUFFER_SIZE> bufferPWM;
-RingBuffer<unsigned long, SAMPLES_BUFFER_SIZE> bufferRPS;
+CriticalSection CS;
+
+RingBuffer<unsigned long, SAMPLES_BUFFER_SIZE> bufferPWM(0L, true); // create buffer ring fullfilled
+RingBuffer<unsigned long, SAMPLES_BUFFER_SIZE> bufferRPS(0L, true); // create buffer ring fullfilled
+
+std::vector<unsigned long> valuesPWM(SAMPLES_BUFFER_SIZE);
+std::vector<unsigned long> valuesRPS(SAMPLES_BUFFER_SIZE);
+
+Correlation<unsigned long, SAMPLES_BUFFER_SIZE> correlations;
 
 void displayMessage();
+void flagFailure(bool isOn);
 
 void IRAM_ATTR PWMInterrupt() {
     vTaskResume(taskPWMHandler);
@@ -126,6 +134,9 @@ void taskIR(void *parameter) {
         vTaskSuspend(NULL);
 
         CS.enter();
+
+        //Serial.print(".");
+
         counterIR++;
         CS.exit();
     }
@@ -136,17 +147,39 @@ void taskTimer(void *parameter) {
         vTaskSuspend(NULL);
 
         CS.enter();
+
+        // copy values to thread save variables
         pulseWidthPWM = pulseWidthPWMIRAM;
         frequencyPWM = counterPWM * NUM_SAMPLE_PER_SEC;
         frequencyIR = counterIR * NUM_SAMPLE_PER_SEC;
+
+        // Insert in buffer lists
+        bufferPWM.get(); // free a slot
+        bufferRPS.get(); // free a slot
+
+        bufferPWM.put(pulseWidthPWM);
+        bufferRPS.put(frequencyIR);
+
+        // reset frequency counters
         counterPWM = 0;
         counterIR = 0;
 
-        if (rho < 0.75f) {
-            isFailure = true;
-        } else {
-            isFailure = false;
+        // samples collected, determine rho
+        if (counterTimer % SAMPLES_BUFFER_SIZE == 0) {
+            // copy ring buffers to linear buffers
+            bufferPWM.copyTo(valuesPWM);
+            bufferRPS.copyTo(valuesRPS);
+
+            rho = correlations.spearman(valuesPWM, valuesRPS);
+            //rho = correlations.pearson(valuesPWM, valuesRPS);
+
+            if (std::abs(rho) < 0.75f) {
+                isFailure = true;
+            } else {
+                isFailure = false;
+            }           
         }
+
         CS.exit();
 
         counterTimer++;
@@ -212,7 +245,7 @@ void setup() {
 }
 
 void loop() {
-    //if (millis() - lastMillis > 100) {
+    //if (millis() - lastMillis > 1000) {
     //    displayMessage();
     //    lastMillis = millis();
     //}
@@ -255,6 +288,23 @@ void displayMessage() {
     Display.display();
 
     //Serial.printf("%05d PWM us  %03d PWM Hz  %05d RPS   %ld counter\n", pwm, freqPWM, RPS, counterTimer);
+
+    // Print PWM and RPS values
+    if (isFailure) {
+        Serial.printf("\nrho: %3.2f\n", r);
+
+        Serial.printf("PWM: ");
+        for (const unsigned long value : valuesPWM) {
+            Serial.printf("%00000ld, ", value);
+        }
+        Serial.println();
+
+        Serial.printf("RPS: ");
+        for (const unsigned long value : valuesRPS) {
+            Serial.printf("%00000ld, ", value);
+        }
+        Serial.println();
+    }
 
     heart = !heart;
 }

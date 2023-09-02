@@ -52,4 +52,4 @@ public:
 
 //int volatile CriticalSection::sectionInUse = 0;
 
-#endif // CRITICAL_SECTION_H
+#endif 

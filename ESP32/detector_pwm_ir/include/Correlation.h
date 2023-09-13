@@ -19,9 +19,9 @@
 
 #ifndef CORRELATION_SECTION_H
 
-#include <vector>
 #include <algorithm>
 #include <iterator>
+#include <vector>
 
 #define CORRELATION_SECTION_H
 

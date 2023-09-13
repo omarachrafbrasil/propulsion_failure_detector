@@ -26,6 +26,7 @@
 #include <RingBuffer.h>
 #include <CriticalSection.h>
 #include <Correlation.h>
+#include <Chronometer.h>
 
 #include "SSD1306Wire.h"
 
@@ -87,18 +88,30 @@ std::vector<unsigned long> valuesRPS(SAMPLES_BUFFER_SIZE);
 
 Correlation<unsigned long, SAMPLES_BUFFER_SIZE> correlations;
 
+Chronometer chronoPWM("PWM");
+Chronometer chronoIR("IR");
+Chronometer chronoTimer("TMR");
+Chronometer chronoFailure("FAIL");
+Chronometer chronoDisplay("DISP");
+
 void displayMessage();
 void flagFailure(bool isOn);
 
 void IRAM_ATTR PWMInterrupt() {
+    chronoPWM.printTimestamp("T0", false);
+
     vTaskResume(taskPWMHandler);
 }
 
 void IRAM_ATTR IRInterrupt() {
+    chronoIR.printTimestamp("T0", false);
+
     vTaskResume(taskIRHandler);
 }
 
 void IRAM_ATTR onTimer() {
+    chronoTimer.printTimestamp("T0", false);
+
     vTaskResume(taskTimerHandler);
 }
 
@@ -110,8 +123,15 @@ void taskPWM(void *parameter) {
     static unsigned long startTime = 0;
     static unsigned long endTime = 0;
 
+    chronoPWM.printTimestamp("T1");
+
     while (true) {
+        chronoPWM.printTimestamp("T2");
+
         vTaskSuspend(NULL);
+
+        chronoPWM.printTimestamp("T3");
+
 
         if (digitalRead(PWM_PIN) == HIGH) {
             startTime = micros();
@@ -121,30 +141,45 @@ void taskPWM(void *parameter) {
             //Serial.print("-");
 
             CS.enter();
+
             pulseWidthPWMIRAM = endTime - startTime;
             counterPWM++;
             //Serial.print(".");
+
             CS.exit();
         }    
     }
 }
 
 void taskIR(void *parameter) {
+    chronoIR.printTimestamp("T1");
+
     while (true) {
+        chronoIR.printTimestamp("T2");
+
         vTaskSuspend(NULL);
+
+        chronoIR.printTimestamp("T3");
 
         CS.enter();
 
         //Serial.print(".");
 
         counterIR++;
+
         CS.exit();
     }
 }
 
 void taskTimer(void *parameter) {
+    chronoTimer.printTimestamp("T1");
+
     while (true) {
+        chronoTimer.printTimestamp("T2");
+
         vTaskSuspend(NULL);
+
+        chronoTimer.printTimestamp("T3");
 
         CS.enter();
 
@@ -187,8 +222,14 @@ void taskTimer(void *parameter) {
 }
 
 void taskFailure(void *parameter) {
+    chronoFailure.printTimestamp("T1");
+
     while (true) {
+        chronoFailure.printTimestamp("T2");
+
         vTaskDelay(pdMS_TO_TICKS(100));
+
+        chronoFailure.printTimestamp("T3");
 
         if (isFailure) {
             flagFailure(true);
@@ -199,8 +240,14 @@ void taskFailure(void *parameter) {
 }
 
 void taskDisplay(void *parameter) {
+    chronoDisplay.printTimestamp("T1");
+
     while (true) {
+        chronoDisplay.printTimestamp("T2");
+
         vTaskDelay(pdMS_TO_TICKS(100));
+
+        chronoDisplay.printTimestamp("T3");
         
         displayMessage();
     }
@@ -209,7 +256,10 @@ void taskDisplay(void *parameter) {
 void setup() {
     // Hardware setup
 
+    Chronometer::setPrintOn(true);
+
     Serial.begin(460800);
+    Serial.println("\nESP32 Begin ------------------------------");
 
     Display.init();
     Display.flipScreenVertically();
@@ -223,11 +273,11 @@ void setup() {
     // Task creation
 
     UBaseType_t priority = 2;
-    xTaskCreatePinnedToCore(taskPWM, "PWM Task", 2048, NULL, priority, &taskPWMHandler, 1);
-    xTaskCreatePinnedToCore(taskIR, "IR Task", 1024, NULL, priority, &taskIRHandler, 1);
-    xTaskCreatePinnedToCore(taskTimer, "Timer Task", 2048, NULL, priority, &taskTimerHandler, 1);
-    xTaskCreatePinnedToCore(taskFailure, "Failure Task", 1024, NULL, priority, &taskFailureHandler, 1);
-    xTaskCreatePinnedToCore(taskDisplay, "Display Task", 2048, NULL, priority, &taskDisplayHandler, 1);
+    xTaskCreatePinnedToCore(taskPWM,     "PWM Task",     2048, NULL, priority + 0, &taskPWMHandler,     1);
+    xTaskCreatePinnedToCore(taskIR,      "IR Task",      2048, NULL, priority + 0, &taskIRHandler,      1);
+    xTaskCreatePinnedToCore(taskTimer,   "Timer Task",   2048, NULL, priority + 0, &taskTimerHandler,   1);
+    xTaskCreatePinnedToCore(taskFailure, "Failure Task", 2048, NULL, priority + 0, &taskFailureHandler, 1);
+    xTaskCreatePinnedToCore(taskDisplay, "Display Task", 2048, NULL, priority + 0, &taskDisplayHandler, 1);
 
     // Interrupt creation
 
@@ -255,10 +305,12 @@ void displayMessage() {
     static bool heart = false;
 
     CS.enter();
+
     unsigned long pwm = pulseWidthPWM;
     unsigned long freqPWM = frequencyPWM;
     unsigned long RPS = frequencyIR / NUM_BLADES; // revolutions per second
     float r = rho;
+    
     CS.exit();
 
     unsigned long RPM = 60 * RPS;
@@ -290,7 +342,7 @@ void displayMessage() {
     //Serial.printf("%05d PWM us  %03d PWM Hz  %05d RPS   %ld counter\n", pwm, freqPWM, RPS, counterTimer);
 
     // Print PWM and RPS values
-    if (isFailure) {
+    if (false && isFailure) {
         Serial.printf("\nrho: %3.2f\n", r);
 
         Serial.printf("PWM: ");

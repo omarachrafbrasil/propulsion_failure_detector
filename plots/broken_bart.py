@@ -55,12 +55,14 @@ def DF2List(df, filterString, minWidth, labelFrom, labelTo):
 
 
 nome_arquivo = 'C:\download\putty_acelera_desacelera_acelera_extrapola.log'
+
+nome_arquivo = 'C:\development\projects\propulsion_failure_detector\plots\putty_detector_log.txt'
       
 
-MIN_TASK_WIDTH = 1000 # 0 uses current else uses minWIdth
+MIN_TASK_WIDTH = 0 # 0 uses current else uses minWIdth
 NUM_LINE = 25000000
-FROM_TIME = 89070324 # 90650000 #15000000
-TO_TIME =   97063441 # 90800000  #20000000
+FROM_TIME = 90650000 #15000000
+TO_TIME =   90800000  #20000000
    
 # DataFrame 'df'        
 dfcsv = pd.read_csv(nome_arquivo, sep=';', header=None) #, nrows=NUM_LINE)
@@ -146,7 +148,7 @@ plt.subplots_adjust(left=0.06, right=0.99)
 #plt.xlim(250000, 350000)
 
 tx = [] 
-for t in range(FROM_TIME, TO_TIME, 1000000):
+for t in range(FROM_TIME, TO_TIME, 10000):
     tx.append(t)
     
 plt.xticks(tx) #[90650000, 90660000, 90670000, 90680000, 90690000, 90700000, 90750000, 90800000])

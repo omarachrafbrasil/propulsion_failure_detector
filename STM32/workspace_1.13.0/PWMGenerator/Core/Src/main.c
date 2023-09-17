@@ -205,7 +205,10 @@ int main(void)
 
 		  EMA_S = (EMA_a * readValue) + ((1 - EMA_a) * EMA_S);    //run the EMA
 
-		  dutyCycle = EMA_S/(float)4095; // % cycle
+		  dutyCycle = EMA_S/(float)4095; // % cycleq
+
+		  dutyCycle = 0.15f/2.0f;
+
 		  dutyTime = dutyCycle * period;
 		  //remainderTime = period - dutyTime;
 

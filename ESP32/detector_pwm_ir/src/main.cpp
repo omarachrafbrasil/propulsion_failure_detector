@@ -101,18 +101,24 @@ void IRAM_ATTR PWMInterrupt() {
     chronoPWM.printTimestamp("T0", false);
 
     vTaskResume(taskPWMHandler);
+
+    chronoPWM.printTimestamp("T4", false);
 }
 
 void IRAM_ATTR IRInterrupt() {
     chronoIR.printTimestamp("T0", false);
 
     vTaskResume(taskIRHandler);
+
+    chronoIR.printTimestamp("T4", false);
 }
 
 void IRAM_ATTR onTimer() {
     chronoTimer.printTimestamp("T0", false);
 
     vTaskResume(taskTimerHandler);
+
+    chronoTimer.printTimestamp("T4", false);
 }
 
 void flagFailure(bool isOn) {
@@ -184,9 +190,9 @@ void taskTimer(void *parameter) {
         CS.enter();
 
         // copy values to thread save variables
-        pulseWidthPWM = pulseWidthPWMIRAM;
         frequencyPWM = counterPWM * NUM_SAMPLE_PER_SEC;
         frequencyIR = counterIR * NUM_SAMPLE_PER_SEC;
+        pulseWidthPWM = pulseWidthPWMIRAM * (frequencyPWM > 0? 1 : 0);
 
         // Insert in buffer lists
         bufferPWM.get(); // free a slot
@@ -258,7 +264,7 @@ void setup() {
 
     Chronometer::setPrintOn(true);
 
-    Serial.begin(460800);
+    Serial.begin(921600);
     Serial.println("\nESP32 Begin ------------------------------");
 
     Display.init();
@@ -273,11 +279,11 @@ void setup() {
     // Task creation
 
     UBaseType_t priority = 2;
-    xTaskCreatePinnedToCore(taskPWM,     "PWM Task",     2048, NULL, priority + 0, &taskPWMHandler,     1);
-    xTaskCreatePinnedToCore(taskIR,      "IR Task",      2048, NULL, priority + 0, &taskIRHandler,      1);
-    xTaskCreatePinnedToCore(taskTimer,   "Timer Task",   2048, NULL, priority + 0, &taskTimerHandler,   1);
-    xTaskCreatePinnedToCore(taskFailure, "Failure Task", 2048, NULL, priority + 0, &taskFailureHandler, 1);
-    xTaskCreatePinnedToCore(taskDisplay, "Display Task", 2048, NULL, priority + 0, &taskDisplayHandler, 1);
+    xTaskCreatePinnedToCore(taskPWM,     "PWM Task",     4096, NULL, priority + 0, &taskPWMHandler,     1);
+    xTaskCreatePinnedToCore(taskIR,      "IR Task",      4096, NULL, priority + 0, &taskIRHandler,      1);
+    xTaskCreatePinnedToCore(taskTimer,   "Timer Task",   4096, NULL, priority + 0, &taskTimerHandler,   1);
+    xTaskCreatePinnedToCore(taskFailure, "Failure Task", 4096, NULL, priority + 0, &taskFailureHandler, 1);
+    xTaskCreatePinnedToCore(taskDisplay, "Display Task", 4096, NULL, priority + 0, &taskDisplayHandler, 1);
 
     // Interrupt creation
 

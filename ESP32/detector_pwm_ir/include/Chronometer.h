@@ -29,15 +29,16 @@
 class Chronometer {
 private:
     static volatile bool printOn;
-    char buffer[50];
     std::string text;
+    char buffer[50];
+    int count;
 
 public:
     std::string label;
     uint64_t startTime;
     uint64_t stopTime;
 
-    Chronometer(std::string label) : buffer(""), label(label), startTime(0), stopTime(0) {
+    Chronometer(std::string label) : buffer(""), count(1), label(label), startTime(0), stopTime(0) {
     }
 
     __attribute__((always_inline)) void start() {
@@ -69,10 +70,12 @@ public:
         std::string message(buffer);
         text += message;
 
-        if (isPrintNow) {
+        if (isPrintNow && count%10 == 0) {
             Serial.printf("%s", text.c_str());
             text = "";
         }
+
+        count++;
     }
 };
 

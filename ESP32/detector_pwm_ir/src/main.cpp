@@ -262,7 +262,7 @@ void taskDisplay(void *parameter) {
 void setup() {
     // Hardware setup
 
-    Chronometer::setPrintOn(true);
+    Chronometer::setPrintOn(false);
 
     Serial.begin(921600);
     Serial.println("\nESP32 Begin ------------------------------");
